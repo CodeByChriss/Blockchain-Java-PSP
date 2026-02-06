@@ -19,7 +19,7 @@ public class Cliente {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
         ){
 
-            System.out.println("Ingrese temperautra actual:");
+            System.out.println("Ingrese temperatura actual:");
             double temp = sc.nextDouble();
             out.println(SENSOR_ID + ";" +"TEMP:"+temp);
 
