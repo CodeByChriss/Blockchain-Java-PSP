@@ -1,15 +1,11 @@
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 
 public class DatabaseService {
     // Configuración de la base de datos remota
-    private static final String IP = "192.168.72.1";
-    //private static final String IP = "localhost";
+    // private static final String IP = "192.168.72.1";
+    private static final String IP = "localhost";
     private static final String DB = "sistema_monitoreo";
-    private static final String URL = "jdbc:mysql://" + IP + ":3306/" + DB + "?useSSL=false&serverTimezone=UTC"+"&allowPublicKeyRetrieval=true";
+    private static final String URL = "jdbc:mysql://" + IP + ":3306/" + DB + "?useSSL=false&serverTimezone=UTC" + "&allowPublicKeyRetrieval=true";
     private static final String USER = "usuario_bd"; // Cambia por tu usuario
     private static final String PASS = "password"; // Cambia por tu contraseña
 
@@ -31,14 +27,15 @@ public class DatabaseService {
     /**
      * Inserta la lectura y devuelve el ID generado para poder hashearlo después.
      */
-    public static int guardarLectura(String sensorId, double temp) {
-        String sql = "INSERT INTO lecturas_temperatura (sensor_id, valor_temp) VALUES (?, ?)";
+    public static int guardarLectura(String sensorId, double temp, long timestamp) {
+        String sql = "INSERT INTO lecturas_temperatura (sensor_id, valor_temp, fecha_registro) VALUES (?, ?, ?)";
 
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             pstmt.setString(1, sensorId);
             pstmt.setDouble(2, temp);
+            pstmt.setTimestamp(3, new Timestamp(timestamp));
             pstmt.executeUpdate();
 
             // Recuperar el ID autoincremental

@@ -38,7 +38,8 @@ public class Servidor {
                     }
 
                     // 1. Guardar en la base de datos SQL remota (IP: 192.168.20.118)
-                    int idGenerado = DatabaseService.guardarLectura(sensorId, temp);
+                    long timestamp = System.currentTimeMillis();
+                    int idGenerado = DatabaseService.guardarLectura(sensorId, temp, timestamp);
 
                     if (idGenerado != -1) {
                         // 2. Crear el bloque en la Blockchain
@@ -46,7 +47,7 @@ public class Servidor {
                         String prevHash = blockchain.get(blockchain.size() - 1).hash;
 
                         // El 'data' del bloque será el hash de integridad de la BD SQL
-                        String dataHash = generarDataHash(sensorId, temp, String.valueOf(idGenerado));
+                        String dataHash = generarDataHash(sensorId, temp, String.valueOf(timestamp));
                         Block nuevoBloque = new Block(dataHash, prevHash);
                         blockchain.add(nuevoBloque);
 
