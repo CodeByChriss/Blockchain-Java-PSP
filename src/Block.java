@@ -1,34 +1,46 @@
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Date;
 
 public class Block {
-    public String hash;
-    public String previousHash;
-    private String data; // Aquí irá la temperatura
-    private long timeStamp;
 
-    public Block(String data, String previousHash) {
-        this.data = data;
+    private String id;
+    private long timestamp;
+    private Double temp;
+    private String hash;
+    private String previousHash;
+
+    public Block(String id, Long timestamp, Double temp, String previousHash) {
+        this.id = id;
+        this.temp = temp;
+        this.timestamp = timestamp;
         this.previousHash = previousHash;
-        this.timeStamp = new Date().getTime();
         this.hash = calculateHash();
     }
 
     public String calculateHash() {
-        String input = previousHash + Long.toString(timeStamp) + data;
+        String registroCompleto = id + timestamp + temp + previousHash;
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            byte[] encodedhash = digest.digest(registroCompleto.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
+            for (byte b : encodedhash) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
                 hexString.append(hex);
             }
             return hexString.toString();
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return null;
         }
+    }
+
+    public String getHash(){
+        return this.hash;
+    }
+
+    public String getPreviousHash(){
+        return this.previousHash;
     }
 }

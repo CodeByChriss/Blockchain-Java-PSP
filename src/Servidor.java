@@ -4,10 +4,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 public class Servidor {
 
@@ -15,10 +14,6 @@ public class Servidor {
     private static final double TEMP_LIMITE = 50.0;
 
     public static void main(String[] args) {
-
-        // Bloque Génesis
-        blockchain.add(new Block("Genesis Block", "0"));
-
         try (ServerSocket serverSocket = new ServerSocket(6000)) {
             System.out.println("Servidor de Monitoreo listo en puerto 6000...");
 
@@ -44,20 +39,23 @@ public class Servidor {
                     if (idGenerado != -1) {
                         // 2. Crear el bloque en la Blockchain
                         // Usamos el hash previo de nuestra lista en memoria
-                        String prevHash = blockchain.get(blockchain.size() - 1).hash;
+                        String prevHash = "";
+                        try {
+                            prevHash = blockchain.getLast().getHash();
+                        } catch (NoSuchElementException _) {
+                        }
 
                         // El 'data' del bloque será el hash de integridad de la BD SQL
-                        String dataHash = generarDataHash(sensorId, temp, String.valueOf(timestamp));
-                        Block nuevoBloque = new Block(dataHash, prevHash);
+                        Block nuevoBloque = new Block(sensorId, timestamp, temp, prevHash);
                         blockchain.add(nuevoBloque);
 
                         // 3. Volver a la SQL para guardar la referencia del bloque (el sello final)
-                        DatabaseService.vincularConBlockchain(idGenerado, nuevoBloque.hash);
+                        DatabaseService.vincularConBlockchain(idGenerado, nuevoBloque.getHash());
 
-                        System.out.println("Bloque añadido. Hash: " + nuevoBloque.hash);
+                        System.out.println("Bloque añadido. Hash: " + nuevoBloque.getHash());
                         out.println("OK:Registro guardado en Blockchain");
 
-                        System.out.println("Sincronización completa: SQL (ID " + idGenerado + ") <-> Blockchain (Hash " + nuevoBloque.hash.substring(0, 8) + "...)");
+                        System.out.println("Sincronización completa: SQL (ID " + idGenerado + ") <-> Blockchain (Hash " + nuevoBloque.getHash().substring(0, 8) + "...)");
                     }
 
                     if (temp > TEMP_LIMITE) {
@@ -84,41 +82,17 @@ public class Servidor {
             previousBlock = blockchain.get(i - 1);
 
             // 1. Validar que el hash del bloque actual sea correcto
-            if (!currentBlock.hash.equals(currentBlock.calculateHash())) {
+            if (!currentBlock.getHash().equals(currentBlock.calculateHash())) {
                 System.err.println("¡ALERTA! El hash del bloque " + i + " no coincide con sus datos.");
                 return false;
             }
 
             // 2. Validar que el bloque actual apunte al hash del bloque anterior
-            if (!currentBlock.previousHash.equals(previousBlock.hash)) {
+            if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) {
                 System.err.println("¡ALERTA! El bloque " + i + " no está bien enlazado con el bloque " + (i - 1));
                 return false;
             }
         }
         return true;
     }
-
-    public static String generarDataHash(String sensorId, double temp, String timestamp) {
-        // Concatenamos los campos clave del registro SQL
-        String registroCompleto = sensorId + Double.toString(temp) + timestamp;
-
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedhash = digest.digest(registroCompleto.getBytes(StandardCharsets.UTF_8));
-
-            // Convertimos a Hexadecimal
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : encodedhash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString(); // Este es el "sello digital" del dato SQL
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
 }
