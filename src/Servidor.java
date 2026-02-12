@@ -26,7 +26,7 @@ public class Servidor {
                     String dataTemp = data.split(";")[1];
                     double temp = Double.parseDouble(dataTemp.split(":")[1]);
 
-                    if (!isChainValid()) {
+                    if (!auditarSistemaPorMayoria()) {
                         System.err.println("ERROR CRÍTICO: La base de datos Blockchain ha sido manipulada.");
                         out.println("ERROR:Integridad de red comprometida.");
                         break; // Detener el servidor por seguridad
@@ -42,8 +42,7 @@ public class Servidor {
                         String prevHash = "";
                         try {
                             prevHash = blockchain.getLast().getHash();
-                        } catch (NoSuchElementException _) {
-                        }
+                        } catch (NoSuchElementException _) {}
 
                         // El 'data' del bloque será el hash de integridad de la BD SQL
                         Block nuevoBloque = new Block(sensorId, timestamp, temp, prevHash);
@@ -64,7 +63,6 @@ public class Servidor {
                         System.out.println("Simulando apagado de seguridad del servidor...");
                         break; // Cerramos el servidor
                     }
-
                 }
             }
         } catch (IOException e) {
@@ -72,27 +70,41 @@ public class Servidor {
         }
     }
 
-    public static Boolean isChainValid() {
-        Block currentBlock;
-        Block previousBlock;
+    public static boolean auditarSistemaPorMayoria() {
+        List<Block> datosSQL = DatabaseService.obtenerTodaBD();
+        if (datosSQL.isEmpty()) return true;
 
-        // Recorremos la cadena desde el segundo bloque (índice 1)
-        for (int i = 1; i < blockchain.size(); i++) {
-            currentBlock = blockchain.get(i);
-            previousBlock = blockchain.get(i - 1);
+        int votosValidos = 0;
+        int votosCorruptos = 0;
+        String hashAnterior = "";
 
-            // 1. Validar que el hash del bloque actual sea correcto
-            if (!currentBlock.getHash().equals(currentBlock.calculateHash())) {
-                System.err.println("¡ALERTA! El hash del bloque " + i + " no coincide con sus datos.");
-                return false;
-            }
+        for (int i = 0; i < datosSQL.size(); i++) {
+            Block bloqueSQL = datosSQL.get(i);
+            // Creamos un bloque auxiliar pasandole los datos actuales para que calcule el hash actual
+            Block bloqueAuxiliar = new Block(bloqueSQL.getId(), bloqueSQL.getTimestamp(), bloqueSQL.getTemp(), hashAnterior);
+            hashAnterior = bloqueSQL.getHash();
 
-            // 2. Validar que el bloque actual apunte al hash del bloque anterior
-            if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) {
-                System.err.println("¡ALERTA! El bloque " + i + " no está bien enlazado con el bloque " + (i - 1));
-                return false;
+            // comprobamos si ambos hashes son iguales
+            boolean integridadSQL = bloqueSQL.getHash().equals(bloqueAuxiliar.getHash());
+
+            if (integridadSQL) {
+                votosValidos++;
+            } else {
+                votosCorruptos++;
+                System.err.println("Divergencia detectada en el registro con índice: " + i);
+                System.err.println(bloqueSQL.getHash()+" <> "+bloqueAuxiliar.getHash());
             }
         }
+
+        System.out.println("RESULTADO AUDITORÍA: Válidos[" + votosValidos + "] Corruptos[" + votosCorruptos + "]");
+
+        if (votosCorruptos > votosValidos || (votosCorruptos == votosValidos && votosCorruptos > 0)) {
+            System.err.println("CRÍTICO: La mayoría de la base de datos o la cadena están corruptas ("+votosCorruptos+" registros corruptos). Cierre de seguridad.");
+            return false; // Se cancela la operación
+        } else if (votosCorruptos > 0) {
+            System.out.println("ADVERTENCIA: Se han detectado registros corruptos, pero la mayoría es íntegra ("+votosCorruptos+" registros corruptos). Continuando...");
+        }
+
         return true;
     }
 }

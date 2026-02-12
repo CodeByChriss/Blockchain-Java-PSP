@@ -1,4 +1,23 @@
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+/*
+    DESCRIBE DE LA BASE DE DATOS:
+
+    +-----------------+--------------+------+-----+---------+----------------+
+    | Field           | Type         | Null | Key | Default | Extra          |
+    +-----------------+--------------+------+-----+---------+----------------+
+    | id              | int          | NO   | PRI | NULL    | auto_increment |
+    | sensor_id       | varchar(50)  | NO   |     | NULL    |                |
+    | valor_temp      | decimal(5,2) | NO   |     | NULL    |                |
+    | fecha_registro  | timestamp(3) | YES  |     | NULL    |                |
+    | blockchain_hash | varchar(64)  | YES  |     | NULL    |                |
+    +-----------------+--------------+------+-----+---------+----------------+
+
+    La diferencia con el script proporcionado por el profesor es en el tipo de
+    fecha_registro que le he puesto (3) para que no redondee los decimales.
+ */
 
 public class DatabaseService {
     // Configuración de la base de datos remota
@@ -65,5 +84,31 @@ public class DatabaseService {
         } catch (Exception e) {
             System.err.println("Error al vincular con Blockchain: " + e.getMessage());
         }
+    }
+
+    public static List<Block> obtenerTodaBD() {
+        List<Block> registrosBD = new ArrayList<>();
+        String sql = "SELECT id, sensor_id, valor_temp, fecha_registro, blockchain_hash FROM lecturas_temperatura ORDER BY id ASC";
+
+        try (
+                Connection conn = getConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)
+        ) {
+            while (rs.next()) {
+                // Reconstruimos el bloque con los datos que hay en la base de datos actualmente
+                Block b = new Block(
+                        rs.getString("sensor_id"),
+                        rs.getTimestamp("fecha_registro").getTime(),
+                        rs.getDouble("valor_temp"),
+                        "", // El previousHash lo validamos en el servidor
+                        rs.getString("blockchain_hash")
+                );
+                registrosBD.add(b);
+            }
+        } catch (Exception e) {
+            System.err.println("Error al obtener toda la base de datos: " + e.getMessage());
+        }
+        return registrosBD;
     }
 }

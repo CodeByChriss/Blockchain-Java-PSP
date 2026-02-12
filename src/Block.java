@@ -17,8 +17,16 @@ public class Block {
         this.hash = calculateHash();
     }
 
+    public Block(String id, Long timestamp, Double temp, String previousHash, String hash) {
+        this.id = id;
+        this.temp = temp;
+        this.timestamp = timestamp;
+        this.previousHash = previousHash;
+        this.hash = hash;
+    }
+
     public String calculateHash() {
-        String registroCompleto = id + timestamp + temp + previousHash;
+        String registroCompleto = id + timestamp + String.format("%.2f", temp) + previousHash;
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] encodedhash = digest.digest(registroCompleto.getBytes(StandardCharsets.UTF_8));
@@ -42,5 +50,17 @@ public class Block {
 
     public String getPreviousHash(){
         return this.previousHash;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public Double getTemp() {
+        return temp;
     }
 }

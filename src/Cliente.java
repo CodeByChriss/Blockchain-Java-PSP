@@ -32,7 +32,7 @@ public class Cliente {
             }
 
         } catch (IOException e) {
-            System.err.println("Error de conexiÃ³n");
+            System.err.println("Error de conexión");
         }
     }
 }
