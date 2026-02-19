@@ -4,12 +4,13 @@ import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 public class Servidor {
 
-    private static List<Block> blockchain = new ArrayList<>();
+    private static List<Block> blockchain = new ArrayList<Block>();
     private static final double TEMP_LIMITE = 50.0;
+    private static ArrayList<HiloServidor> hilosServidor = new ArrayList<HiloServidor>();
+    private static volatile boolean continuar = true;
 
     public static void main(String[] args) {
         try {
@@ -29,54 +30,12 @@ public class Servidor {
             try (SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocket.createServerSocket(6000)) {
                 System.out.println("Servidor SSL de Monitoreo listo en puerto 6000...");
 
-                while (true) {
-                    try (SSLSocket clientSocket = (SSLSocket) serverSocket.accept(); BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream())); PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
-
-                        String data = in.readLine(); // Formato esperado: "NOMBRE_SENSOR;TEMP:valor"
-                        System.out.println(data);
-                        String sensorId = data.split(";")[0];
-                        String dataTemp = data.split(";")[1];
-                        double temp = Double.parseDouble(dataTemp.split(":")[1]);
-
-                        if (!auditarSistemaPorMayoria()) {
-                            System.err.println("ERROR CRÍTICO: La base de datos Blockchain ha sido manipulada.");
-                            out.println("ERROR:Integridad de red comprometida.");
-                            break; // Detener el servidor por seguridad
-                        }
-
-                        // 1. Guardar en la base de datos SQL remota (IP: 192.168.20.118)
-                        long timestamp = System.currentTimeMillis();
-                        int idGenerado = DatabaseService.guardarLectura(sensorId, temp, timestamp);
-
-                        if (idGenerado != -1) {
-                            // 2. Crear el bloque en la Blockchain
-                            // Usamos el hash previo de nuestra lista en memoria
-                            String prevHash = "";
-                            try {
-                                prevHash = blockchain.getLast().getHash();
-                            } catch (NoSuchElementException _) {
-                            }
-
-                            // El 'data' del bloque será el hash de integridad de la BD SQL
-                            Block nuevoBloque = new Block(sensorId, timestamp, temp, prevHash);
-                            blockchain.add(nuevoBloque);
-
-                            // 3. Volver a la SQL para guardar la referencia del bloque (el sello final)
-                            DatabaseService.vincularConBlockchain(idGenerado, nuevoBloque.getHash());
-
-                            System.out.println("Bloque añadido. Hash: " + nuevoBloque.getHash());
-                            out.println("OK:Registro guardado en Blockchain");
-
-                            System.out.println("Sincronización completa: SQL (ID " + idGenerado + ") <-> Blockchain (Hash " + nuevoBloque.getHash().substring(0, 8) + "...)");
-                        }
-
-                        if (temp > TEMP_LIMITE) {
-                            System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
-                            out.println("SISTEMA_APAGADO");
-                            System.out.println("Simulando apagado de seguridad del servidor...");
-                            break; // Cerramos el servidor
-                        }
-                    }
+                while (continuar) {
+                    SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
+                    // Creamos un nuevo hilo para cada cliente nuevo
+                    HiloServidor hiloServidor = new HiloServidor(clientSocket, TEMP_LIMITE);
+                    hiloServidor.start();
+                    hilosServidor.add(hiloServidor);
                 }
             }
         } catch (IOException | KeyManagementException | UnrecoverableKeyException | NoSuchAlgorithmException |
@@ -121,5 +80,37 @@ public class Servidor {
         }
 
         return true;
+    }
+
+    public synchronized static String getLastHash(){
+        if(blockchain.isEmpty()) return "";
+        else return blockchain.getLast().getHash();
+    }
+
+    public synchronized static void addBlock(Block nuevoBlock){
+        blockchain.add(nuevoBlock);
+    }
+
+    public synchronized static void cerrarPorSeguridad(HiloServidor hiloServidor, double temp){
+        System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
+        System.out.println("Simulando apagado de seguridad del servidor...");
+
+        // enviamos a todos los clientes que el servidor se ha apagado
+        for(HiloServidor hilo : hilosServidor){
+            hilo.enviarMensaje("SISTEMA_APAGADO");
+            hilo.pararRun();
+        }
+
+        continuar = false;
+    }
+
+    public synchronized static void desconectarCliente(HiloServidor hiloServidor) {
+        hilosServidor.remove(hiloServidor);
+        try {
+            hiloServidor.getClientSocket().close();
+        }catch(IOException e){
+            System.out.println("Error al intentar cerrar el socket del cliente.");
+        }
+        System.out.println("Cliente "+hiloServidor.getSensor_ID()+" desconectado.");
     }
 }
