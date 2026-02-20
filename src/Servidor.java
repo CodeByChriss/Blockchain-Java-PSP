@@ -1,6 +1,5 @@
 import javax.net.ssl.*;
 import java.io.*;
-import java.net.SocketException;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
