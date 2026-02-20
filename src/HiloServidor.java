@@ -43,6 +43,7 @@ public class HiloServidor extends Thread {
                 if (!Servidor.auditarSistemaPorMayoria()) {
                     System.err.println("ERROR CRÍTICO: La base de datos Blockchain ha sido manipulada.");
                     out.println("ERROR:Integridad de red comprometida.");
+                    Servidor.cerrarPorSeguridad(this,true,temp);
                     break; // Detener el servidor por seguridad
                 }
 
@@ -71,7 +72,7 @@ public class HiloServidor extends Thread {
                 if (temp > this.TEMP_LIMITE) {
                     System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
                     System.out.println("Simulando apagado de seguridad del servidor...");
-                    Servidor.cerrarPorSeguridad(this, temp);
+                    Servidor.cerrarPorSeguridad(this, false, temp);
                 }
             }
         } catch (IOException e) {
@@ -91,6 +92,13 @@ public class HiloServidor extends Thread {
 
     public void pararRun() {
         this.continuar = false;
+        // Cerramos también el BufferedReader y PrintWriter para que no se quede el hilo colgado esperando una respuesta y se cierre
+        try {
+            this.in.close();
+        }catch(IOException e){
+            System.out.println("Error al cerrar el BufferedReader en el hiloServidor el cliente: "+this.sensor_ID);
+        }
+        this.out.close();
     }
 
     public void enviarMensaje(String msg){

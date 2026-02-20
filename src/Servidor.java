@@ -1,5 +1,6 @@
 import javax.net.ssl.*;
 import java.io.*;
+import java.net.SocketException;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ public class Servidor {
     private static final double TEMP_LIMITE = 50.0;
     private static ArrayList<HiloServidor> hilosServidor = new ArrayList<HiloServidor>();
     private static volatile boolean continuar = true;
+    private static SSLServerSocket serverSocket;
 
     public static void main(String[] args) {
         try {
@@ -27,20 +29,23 @@ public class Servidor {
 
             // Socket seguro
             SSLServerSocketFactory sslServerSocket = sslContext.getServerSocketFactory();
-            try (SSLServerSocket serverSocket = (SSLServerSocket) sslServerSocket.createServerSocket(6000)) {
-                System.out.println("Servidor SSL de Monitoreo listo en puerto 6000...");
+            serverSocket = (SSLServerSocket) sslServerSocket.createServerSocket(6000); // lo saco de try() para poner forzar el cierre del servidor
+            System.out.println("Servidor SSL de Monitoreo listo en puerto 6000...");
 
-                while (continuar) {
-                    SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
-                    // Creamos un nuevo hilo para cada cliente nuevo
-                    HiloServidor hiloServidor = new HiloServidor(clientSocket, TEMP_LIMITE);
-                    hiloServidor.start();
-                    hilosServidor.add(hiloServidor);
-                }
+            while (continuar) {
+                SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
+                // Creamos un nuevo hilo para cada cliente nuevo
+                HiloServidor hiloServidor = new HiloServidor(clientSocket, TEMP_LIMITE);
+                hiloServidor.start();
+                hilosServidor.add(hiloServidor);
             }
         } catch (IOException | KeyManagementException | UnrecoverableKeyException | NoSuchAlgorithmException |
                  KeyStoreException | CertificateException e) {
-            e.printStackTrace();
+            if (!continuar) {
+                System.out.println("Servidor cerrado de forma controlada.");
+            } else {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -91,8 +96,12 @@ public class Servidor {
         blockchain.add(nuevoBlock);
     }
 
-    public synchronized static void cerrarPorSeguridad(HiloServidor hiloServidor, double temp) {
-        System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
+    public synchronized static void cerrarPorSeguridad(HiloServidor hiloServidor, boolean divergencia, double temp) {
+        if (divergencia) {
+            System.err.println("CRÍTICO: Divergencia detectada.");
+        } else {
+            System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
+        }
         System.out.println("Simulando apagado de seguridad del servidor...");
 
         // enviamos a todos los clientes que el servidor se ha apagado
@@ -102,6 +111,11 @@ public class Servidor {
         }
 
         continuar = false;
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            System.out.println("Error al intentar cerrar el socket del servidor.");
+        }
     }
 
     public synchronized static void desconectarCliente(HiloServidor hiloServidor) {

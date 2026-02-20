@@ -31,7 +31,11 @@ public class Cliente {
 
                 String respuesta = in.readLine();
                 if (respuesta.equals("SISTEMA_APAGADO")) {
-                    System.out.println("El servidor ha ordenado el apagado del equipo");
+                    System.out.println("El servidor ha ordenado el apagado del equipo.");
+                    break;
+                }else if(respuesta.equals("ERROR:Integridad de red comprometida.")){
+                    System.out.println("RESPUESTA:" + respuesta);
+                    System.out.println("El servidor ha ordenado el apagado del equipo por seguridad.");
                     break;
                 } else {
                     System.out.println("RESPUESTA:" + respuesta);
