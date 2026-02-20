@@ -82,21 +82,21 @@ public class Servidor {
         return true;
     }
 
-    public synchronized static String getLastHash(){
-        if(blockchain.isEmpty()) return "";
+    public synchronized static String getLastHash() {
+        if (blockchain.isEmpty()) return "";
         else return blockchain.getLast().getHash();
     }
 
-    public synchronized static void addBlock(Block nuevoBlock){
+    public synchronized static void addBlock(Block nuevoBlock) {
         blockchain.add(nuevoBlock);
     }
 
-    public synchronized static void cerrarPorSeguridad(HiloServidor hiloServidor, double temp){
+    public synchronized static void cerrarPorSeguridad(HiloServidor hiloServidor, double temp) {
         System.err.println("CRÍTICO: Temperatura " + temp + "°C excede el límite.");
         System.out.println("Simulando apagado de seguridad del servidor...");
 
         // enviamos a todos los clientes que el servidor se ha apagado
-        for(HiloServidor hilo : hilosServidor){
+        for (HiloServidor hilo : hilosServidor) {
             hilo.enviarMensaje("SISTEMA_APAGADO");
             hilo.pararRun();
         }
@@ -108,9 +108,9 @@ public class Servidor {
         hilosServidor.remove(hiloServidor);
         try {
             hiloServidor.getClientSocket().close();
-        }catch(IOException e){
+        } catch (IOException e) {
             System.out.println("Error al intentar cerrar el socket del cliente.");
         }
-        System.out.println("Cliente "+hiloServidor.getSensor_ID()+" desconectado.");
+        System.out.println("Cliente " + hiloServidor.getSensor_ID() + " desconectado.");
     }
 }
